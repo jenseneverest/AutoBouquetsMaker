@@ -55,7 +55,7 @@ PyObject *ss_close(PyObject *self, PyObject *args) {
 	return Py_None;
 }
 
-PyObject *ss_parse_bat(unsigned char *data, int length) {
+PyObject *ss_parse_bat(unsigned char *data, int length, char *curprovider) {
 	PyObject* list = PyList_New(0);
 
 	int bouquet_id = (data[3] << 8) | data[4];
@@ -63,6 +63,15 @@ PyObject *ss_parse_bat(unsigned char *data, int length) {
 	int transport_stream_loop_length = ((data[bouquet_descriptors_length + 10] & 0x0f) << 8) | data[bouquet_descriptors_length + 11];
 	int offset1 = 10;
 	int ret = 0;
+
+	char *freesat_s = "FREESAT";
+	int freesat = strcmp(curprovider, freesat_s) == 0;
+
+	char *sky_s = "SKY";
+	int sky = strcmp(curprovider, sky_s) == 0;
+
+	char *lcnbat_s = "LCNBAT";
+	int lcnbat = strcmp(curprovider, lcnbat_s) == 0;
 
 	while (bouquet_descriptors_length > 0)
 	{
@@ -443,7 +452,7 @@ PyObject *ss_parse_bat(unsigned char *data, int length) {
 					descriptor_length -= 9;
 				}
 			}
-			else if (descriptor_tag == 0xd3) // Freesat main descriptor
+			else if (descriptor_tag == 0xd3 && freesat) // Freesat main descriptor
 			{
 				while (descriptor_length > 0)
 				{
@@ -535,10 +544,10 @@ PyObject *ss_parse_bat(unsigned char *data, int length) {
 				if (strlen(description) == 0)
 					strcpy(description, "Empty");
 
-				PyObject *item = Py_BuildValue("{s:i,s:i,s:s}",
+				PyObject *item = Py_BuildValue("{s:i,s:i,s:s,s:i}",
 							"descriptor_tag", descriptor_tag,
 							"descriptor_length", descriptor_length,
-							"hexcontent", description);
+							"hexcontent", description, "sky", sky);
 
 				PyList_Append(list, item);
 				Py_DECREF(item);
@@ -1102,9 +1111,10 @@ PyObject *ss_read_ts(PyObject *self, PyObject *args) {
 PyObject *ss_read_bat(PyObject *self, PyObject *args) {
 	PyObject *content = NULL, *header = NULL;
 	unsigned char buffer[4096], table_id;
+	char *curprovider;
 	int fd;
 
-	if (!PyArg_ParseTuple(args, "ib", &fd, &table_id))
+	if (!PyArg_ParseTuple(args, "ibs", &fd, &table_id, &curprovider))
 		return Py_None;
 
 	int size = read(fd, buffer, sizeof(buffer));
@@ -1120,7 +1130,7 @@ PyObject *ss_read_bat(PyObject *self, PyObject *args) {
 		return Py_None;
 
 	header = ss_parse_header(buffer, section_length, "bouquet_id");
-	content = ss_parse_bat(buffer, section_length);
+	content = ss_parse_bat(buffer, section_length, curprovider);
 
 	if (!header || !content)
 		return Py_None;
