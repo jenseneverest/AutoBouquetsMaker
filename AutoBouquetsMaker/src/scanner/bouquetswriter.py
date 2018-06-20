@@ -8,9 +8,16 @@ from tools import Tools
 from dvbscanner import DvbScanner
 import os, codecs, re
 
+import sys
+
 class BouquetsWriter():
 
 	ABM_BOUQUET_PREFIX = "userbouquet.abm."
+
+	def __init__(self):
+		reload(sys)
+		sys.setdefaultencoding('utf-8')
+		print "sys.getdefaultencoding()", sys.getdefaultencoding()
 
 	def writeLamedb(self, path, transponders):
 		print>>log, "[ABM-BouquetsWriter] Writing lamedb..."
